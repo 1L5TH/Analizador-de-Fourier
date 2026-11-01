@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Series y Transformada de Fourier</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            bg: '#0f172a',
+                            card: '#1e293b',
+                            border: '#334155',
+                            accent: '#38bdf8'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- KaTeX CSS y JS CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-dark-bg text-slate-100 min-h-screen flex flex-col justify-between selection:bg-sky-500 selection:text-white">
+
+    <!-- Header Principal -->
+    <header class="bg-dark-card border-b border-dark-border py-4 px-6 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-sky-500/10 text-sky-400 p-3 rounded-xl border border-sky-500/20 shadow-inner">
+                    <i class="fa-solid fa-wave-square text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white">Análisis de Ondas</h1>
+                    <p class="text-xs text-slate-400">Series de Fourier (<span id="math-header-n">N=4</span> términos) & Transformada Espectral (FFT)</p>
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="max-w-7xl mx-auto w-full px-4 py-8 flex-grow space-y-10">
+
+        <!-- Sección: Simulador Interactivo y Analizador FFT -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Panel de Control y Generador (1 columna) -->
+            <div class="bg-dark-card border border-dark-border rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-6">
+                <div>
+                    <h2 class="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-sky-400"></i> Panel de Control
+                    </h2>
+                    <p class="text-xs text-slate-400 mb-6">Seleccione la forma de onda, configure la frecuencia y reproduzca la síntesis armónica.</p>
+
+                    <!-- Selector de Onda -->
+                    <div class="space-y-3 mb-6">
+                        <label class="text-xs font-semibold uppercase tracking-wider text-slate-300">Forma de Onda</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button id="btnSquare" onclick="setWaveform('square')" class="py-2.5 px-3 rounded-xl border border-sky-500 bg-sky-500/20 text-sky-300 font-medium text-xs transition-all flex flex-col items-center gap-1 shadow-sm">
+                                <i class="fa-solid fa-wave-square text-base"></i> Cuadrada
+                            </button>
+                            <button id="btnSaw" onclick="setWaveform('sawtooth')" class="py-2.5 px-3 rounded-xl border border-dark-border bg-slate-800/60 text-slate-300 font-medium text-xs transition-all flex flex-col items-center gap-1 hover:border-slate-600">
+                                <i class="fa-solid fa-chart-line text-base"></i> Diente Sierra
+                            </button>
+                            <button id="btnTri" onclick="setWaveform('triangle')" class="py-2.5 px-3 rounded-xl border border-dark-border bg-slate-800/60 text-slate-300 font-medium text-xs transition-all flex flex-col items-center gap-1 hover:border-slate-600">
+                                <i class="fa-solid fa-mountain text-base"></i> Triangular
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Frecuencia Fundamental -->
+                    <div class="space-y-2 mb-6">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-semibold uppercase tracking-wider text-slate-300">Frecuencia (<span id="math-f0-label">f_0</span>)</span>
+                            <span id="freqVal" class="text-sky-400 font-mono font-bold text-sm">220 Hz</span>
+                        </div>
+                        <input type="range" id="freqRange" min="100" max="800" step="10" value="220" oninput="updateFrequency(this.value)" class="w-full accent-sky-500 bg-slate-800 rounded-lg h-2 cursor-pointer">
+                    </div>
+
+                    <!-- Número de Términos (N) -->
+                    <div class="space-y-2 mb-6">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-semibold uppercase tracking-wider text-slate-300">Términos Armónicos (<span id="math-n-label">N</span>)</span>
+                            <span id="nVal" class="text-sky-400 font-mono font-bold text-sm">4</span>
+                        </div>
+                        <input type="range" id="nRange" min="1" max="15" step="1" value="4" oninput="updateN(this.value)" class="w-full accent-sky-500 bg-slate-800 rounded-lg h-2 cursor-pointer">
+                        <p class="text-[10px] text-slate-400">Actualiza dinámicamente las fórmulas y el número de armónicos en tiempo real.</p>
+                    </div>
+                </div>
+
+                <!-- Botones de Reproducción y Micrófono -->
+                <div class="space-y-3 pt-4 border-t border-dark-border">
+                    <button id="playBtn" onclick="toggleAudio()" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-white font-semibold shadow-lg shadow-sky-500/20 hover:from-sky-400 hover:to-blue-500 transition-all flex items-center justify-center gap-2">
+                        <i id="playIcon" class="fa-solid fa-play"></i> <span id="playText">Reproducir Señal Sintetizada</span>
+                    </button>
+                    <button id="recBtn" onclick="toggleRecord()" class="w-full py-2.5 px-4 rounded-xl bg-slate-800 border border-dark-border text-slate-300 hover:text-white font-medium text-xs transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-microphone text-sky-400"></i> <span id="recText">Grabar Fragmento (Micrófono)</span>
+                    </button>
+                    <button id="playRecBtn" onclick="togglePlayRecorded()" disabled class="w-full py-2.5 px-4 rounded-xl bg-slate-900 border border-dark-border text-slate-500 font-medium text-xs transition-all flex items-center justify-center gap-2 cursor-not-allowed">
+                        <i class="fa-solid fa-volume-high"></i> <span id="playRecText">Reproducir Fragmento Grabado (FFT)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Panel de Visualización (2 columnas) -->
+            <div class="lg:col-span-2 bg-dark-card border border-dark-border rounded-2xl p-6 shadow-xl flex flex-col space-y-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-water text-sky-400"></i> Espectrograma Acústico y FFT
+                        </h2>
+                        <p class="text-xs text-slate-400">Eje vertical: Frecuencia (kHz) | Eje horizontal: Tiempo (s) con mapa térmico.</p>
+                    </div>
+                    <div class="flex items-center gap-2 bg-slate-900/60 px-3 py-1 rounded-lg border border-dark-border">
+                        <span class="w-2.5 h-2.5 rounded-full bg-sky-400 animate-ping"></span>
+                        <span id="modeStatus" class="text-xs font-mono text-slate-300">Modo: Sintetizador Interno (N=4)</span>
+                    </div>
+                </div>
+
+                <!-- Canvas Doble: Espectro de Línea FFT superior + Espectrograma Cascada (Waterfall) inferior -->
+                <div class="grid grid-cols-1 gap-4">
+                    <!-- Espectro FFT -->
+                    <div class="relative w-full h-40 bg-slate-950 rounded-xl border border-dark-border overflow-hidden shadow-inner flex items-center justify-center">
+                        <canvas id="fftCanvas" class="w-full h-full object-cover"></canvas>
+                        <div class="absolute top-2 left-3 bg-slate-900/80 px-2 py-0.5 rounded border border-dark-border text-[10px] font-mono text-sky-400">
+                            Espectro de Amplitud (FFT)
+                        </div>
+                    </div>
+
+                    <!-- Espectrograma Acústico -->
+                    <div class="relative w-full h-56 bg-slate-950 rounded-xl border border-dark-border overflow-hidden shadow-inner flex">
+                        <div class="w-12 bg-slate-950 border-r border-dark-border flex flex-col justify-between py-2 px-1 text-[9px] font-mono text-slate-400 select-none text-right">
+                            <span>8k</span>
+                            <span>6k</span>
+                            <span>4k</span>
+                            <span>2k</span>
+                            <span>0k</span>
+                        </div>
+                        <div class="flex-grow relative flex flex-col">
+                            <div class="absolute top-2 right-3 z-10 bg-slate-900/80 px-2 py-0.5 rounded border border-dark-border text-[10px] font-mono text-emerald-400">
+                                Espectrograma (Freq kHz vs Tiempo s)
+                            </div>
+                            <div class="flex-grow relative flex items-center justify-center">
+                                <canvas id="waterfallCanvas" class="w-full h-full object-cover"></canvas>
+                            </div>
+                            <div class="h-6 bg-slate-950 border-t border-dark-border flex justify-between items-center px-4 text-[9px] font-mono text-slate-400">
+                               <span>0s</span>
+                               <span>2s</span>
+                               <span>4s</span>
+                               <span>6s</span>
+                               <span>8s</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Explicación Pedagógica en Tiempo Real -->
+                <div class="bg-slate-900/50 border border-dark-border rounded-xl p-4 space-y-2">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle-info"></i> Análisis de la Señal Actual
+                    </h3>
+                    <div id="analysisText" class="text-xs text-slate-300 leading-relaxed"></div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark-card border-t border-dark-border py-4 px-6 text-center text-xs text-slate-500 mt-12">
+        <p>Torres Herrera Alejandro 3CM9 2026300123</p>
+    </footer>
+
+    <!-- Script de Lógica Interactiva, KaTeX y Audio -->
+    <script>
+        // Variables de Estado
+        let currentWaveform = 'square';
+        let frequency = 220;
+        let numTerms = 4;
+        let isPlaying = false;
+        let isRecording = false;
+        let isPlayingRecorded = false;
+
+        let audioCtx = null;
+        let oscillator = null;
+        let analyser = null;
+        let gainNode = null;
+        
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let recordedAudioBlob = null;
+        let recordedAudioElement = null;
+        let recordedAudioSource = null;
+
+        let animationId = null;
+        let waterfallCanvas = null;
+        let waterfallCtx = null;
+
+        // Inicializar KaTeX y loop al cargar
+        window.addEventListener('load', () => {
+            renderKatexFormulas();
+            initFFTCanvas();
+            startVisualizerLoop();
+        });
+
+        // Renderizado KaTeX
+        function renderKatexFormulas() {
+            katex.render("N=" + numTerms, document.getElementById('math-header-n'), { displayMode: false });
+            katex.render("f_0", document.getElementById('math-f0-label'), { displayMode: false });
+            katex.render("N", document.getElementById('math-n-label'), { displayMode: false });
+
+            const analysisEl = document.getElementById('analysisText');
+            if (isRecording) {
+                katex.render(`\\text{Grabando fragmento de audio desde el micrófono... Hable o emita un sonido para capturar la señal.}`, analysisEl, { displayMode: false });
+            } else if (isPlayingRecorded) {
+                katex.render(`\\text{Reproduciendo fragmento grabado. Analizando el espectrograma acústico y la FFT.}`, analysisEl, { displayMode: false });
+            } else if (currentWaveform === 'square') {
+                katex.render(`\\text{Señal cuadrada con } N = ${numTerms} \\text{ términos. Picos en frecuencias impares } (f_0, 3f_0, \\dots) \\text{ con amplitud } \\propto \\frac{1}{n}.`, analysisEl, { displayMode: false });
+            } else if (currentWaveform === 'sawtooth') {
+                katex.render(`\\text{Señal diente de sierra con } N = ${numTerms} \\text{ armónicos consecutivos } (f_0, 2f_0, 3f_0, \\dots) \\text{ con amplitud } \\propto \\frac{1}{n}.`, analysisEl, { displayMode: false });
+            } else {
+                katex.render(`\\text{Señal triangular con } N = ${numTerms} \\text{ armónicos impares en coseno y atenuación cuadrática } \\propto \\frac{1}{n^2}.`, analysisEl, { displayMode: false });
+            }
+        }
+
+        // Control de Interfaz y Parámetros
+        function setWaveform(type) {
+            currentWaveform = type;
+            ['square', 'sawtooth', 'triangle'].forEach(t => {
+                const btn = t === 'square' ? document.getElementById('btnSquare') : (t === 'sawtooth' ? document.getElementById('btnSaw') : document.getElementById('btnTri'));
+                if (t === type) {
+                    btn.className = "py-2.5 px-3 rounded-xl border border-sky-500 bg-sky-500/20 text-sky-300 font-medium text-xs transition-all flex flex-col items-center gap-1 shadow-sm";
+                } else {
+                    btn.className = "py-2.5 px-3 rounded-xl border border-dark-border bg-slate-800/60 text-slate-300 font-medium text-xs transition-all flex flex-col items-center gap-1 hover:border-slate-600";
+                }
+            });
+
+            renderKatexFormulas();
+            if (isPlaying && oscillator) {
+                stopAudio();
+                startAudio();
+            }
+        }
+
+        function updateFrequency(val) {
+            frequency = parseInt(val);
+            document.getElementById('freqVal').innerText = frequency + ' Hz';
+            if (oscillator && audioCtx) {
+                oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            }
+        }
+
+        function updateN(val) {
+            numTerms = parseInt(val);
+            document.getElementById('nVal').innerText = numTerms;
+            renderKatexFormulas();
+            document.getElementById('modeStatus').innerText = `Modo: Sintetizador (${currentWaveform.toUpperCase()}, N=${numTerms})`;
+        }
+
+        // Control de Web Audio API (Sintetizador)
+        async function toggleAudio() {
+            if (isPlayingRecorded) {
+                stopRecordedAudio();
+            }
+            if (isPlaying) {
+                stopAudio();
+            } else {
+                await startAudio();
+            }
+        }
+
+        async function startAudio() {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
+                }
+
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 2048;
+
+                gainNode = audioCtx.createGain();
+                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+
+                oscillator = audioCtx.createOscillator();
+                oscillator.type = currentWaveform;
+                oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(analyser);
+                analyser.connect(audioCtx.destination);
+
+                oscillator.start();
+                isPlaying = true;
+
+                document.getElementById('playBtn').className = "w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold shadow-lg shadow-rose-600/20 transition-all flex items-center justify-center gap-2";
+                document.getElementById('playIcon').className = "fa-solid fa-stop";
+                document.getElementById('playText').innerText = "Detener Reproducción";
+                document.getElementById('modeStatus').innerText = `Modo: Sintetizador (${currentWaveform.toUpperCase()}, N=${numTerms})`;
+            } catch (e) {
+                console.error("Error al iniciar audio:", e);
+                alert("Error al iniciar el audio.");
+            }
+        }
+
+        function stopAudio() {
+            if (oscillator) {
+                try { oscillator.stop(); } catch(e){}
+                oscillator.disconnect();
+                oscillator = null;
+            }
+            if (audioCtx) {
+                audioCtx.close();
+                audioCtx = null;
+            }
+            isPlaying = false;
+            document.getElementById('playBtn').className = "w-full py-3 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 text-white font-semibold shadow-lg shadow-sky-500/20 hover:from-sky-400 hover:to-blue-500 transition-all flex items-center justify-center gap-2";
+            document.getElementById('playIcon').className = "fa-solid fa-play";
+            document.getElementById('playText').innerText = "Reproducir Señal Sintetizada";
+            document.getElementById('modeStatus').innerText = "Modo: En Espera";
+        }
+
+        // Grabación y Reproducción de Fragmento de Micrófono
+        async function toggleRecord() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                await startRecording();
+            }
+        }
+
+        async function startRecording() {
+            if (isPlaying) stopAudio();
+            if (isPlayingRecorded) stopRecordedAudio();
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(stream);
+
+                mediaRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    recordedAudioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+                    const audioUrl = URL.createObjectURL(recordedAudioBlob);
+                    recordedAudioElement = new Audio(audioUrl);
+                    
+                    const playRecBtn = document.getElementById('playRecBtn');
+                    playRecBtn.disabled = false;
+                    playRecBtn.className = "w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition-all flex items-center justify-center gap-2 shadow-md";
+                    document.getElementById('modeStatus').innerText = "Modo: Fragmento Grabado Listo para Reproducir";
+                    renderKatexFormulas();
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+                document.getElementById('recBtn').className = "w-full py-2.5 px-4 rounded-xl bg-rose-600 text-white font-medium text-xs transition-all flex items-center justify-center gap-2 animate-pulse";
+                document.getElementById('recText').innerText = "Detener Grabación (Micrófono)";
+                document.getElementById('modeStatus').innerText = "Modo: Grabando Audio...";
+                renderKatexFormulas();
+            } catch (e) {
+                alert("No se pudo acceder al micrófono para grabar.");
+                console.error(e);
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                isRecording = false;
+                document.getElementById('recBtn').className = "w-full py-2.5 px-4 rounded-xl bg-slate-800 border border-dark-border text-slate-300 hover:text-white font-medium text-xs transition-all flex items-center justify-center gap-2";
+                document.getElementById('recText').innerText = "Grabar Fragmento (Micrófono)";
+            }
+        }
+
+        async function togglePlayRecorded() {
+            if (isPlayingRecorded) {
+                stopRecordedAudio();
+            } else {
+                if (!recordedAudioBlob) return;
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+                    analyser = audioCtx.createAnalyser();
+                    analyser.fftSize = 2048;
+
+                    recordedAudioSource = audioCtx.createMediaElementSource(recordedAudioElement);
+                    recordedAudioSource.connect(analyser);
+                    analyser.connect(audioCtx.destination);
+
+                    recordedAudioElement.play();
+                    isPlayingRecorded = true;
+
+                    document.getElementById('playRecBtn').className = "w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-medium text-xs transition-all flex items-center justify-center gap-2";
+                    document.getElementById('playRecText').innerText = "Detener Reproducción de Grabación";
+                    document.getElementById('modeStatus').innerText = "Modo: Analizando Espectrograma de Audio Grabado";
+                    renderKatexFormulas();
+
+                    recordedAudioElement.onended = () => {
+                        stopRecordedAudio();
+                    };
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        }
+
+        function stopRecordedAudio() {
+            if (recordedAudioElement) {
+                recordedAudioElement.pause();
+                recordedAudioElement.currentTime = 0;
+            }
+            if (audioCtx) {
+                audioCtx.close();
+                audioCtx = null;
+            }
+            isPlayingRecorded = false;
+            document.getElementById('playRecBtn').className = "w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition-all flex items-center justify-center gap-2 shadow-md";
+            document.getElementById('playRecText').innerText = "Reproducir Fragmento Grabado (FFT)";
+            document.getElementById('modeStatus').innerText = "Modo: En Espera";
+            renderKatexFormulas();
+        }
+
+        // Inicialización y Loop del Canvas FFT y Cascada Acústica
+        function initFFTCanvas() {
+            const canvas = document.getElementById('fftCanvas');
+            if (canvas) {
+                canvas.width = canvas.parentElement.clientWidth || 600;
+                canvas.height = canvas.parentElement.clientHeight || 160;
+            }
+
+            waterfallCanvas = document.getElementById('waterfallCanvas');
+            if (waterfallCanvas) {
+                waterfallCanvas.width = waterfallCanvas.parentElement.clientWidth || 600;
+                waterfallCanvas.height = waterfallCanvas.parentElement.clientHeight || 180;
+                waterfallCtx = waterfallCanvas.getContext('2d', { willReadFrequently: true });
+                waterfallCtx.fillStyle = '#020617';
+                waterfallCtx.fillRect(0, 0, waterfallCanvas.width, waterfallCanvas.height);
+            }
+        }
+
+        function startVisualizerLoop() {
+            const canvas = document.getElementById('fftCanvas');
+            const ctx = canvas.getContext('2d');
+
+            function render() {
+                animationId = requestAnimationFrame(render);
+
+                if (!canvas.width || !canvas.height) {
+                    initFFTCanvas();
+                }
+
+                // 1. Dibujar Espectro de Línea FFT superior
+                ctx.fillStyle = '#020617';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < canvas.width; i += 40) {
+                    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+                }
+                for (let j = 0; j < canvas.height; j += 40) {
+                    ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
+                }
+
+                let freqData = null;
+                const bufferLength = analyser ? analyser.frequencyBinCount : 1024;
+                const dataArray = new Uint8Array(bufferLength);
+
+                if (analyser && (isPlaying || isPlayingRecorded)) {
+                    analyser.getByteFrequencyData(dataArray);
+                    freqData = dataArray;
+                } else {
+                    for (let i = 0; i < bufferLength; i++) {
+                        let xNorm = i / (bufferLength / 2);
+                        let val = 0;
+                        let peaks = currentWaveform === 'square' ? [1, 3, 5, 7] : (currentWaveform === 'sawtooth' ? [1, 2, 3, 4] : [1, 3, 5, 7]);
+                        let amps = currentWaveform === 'square' ? [1, 0.33, 0.2, 0.14] : (currentWaveform === 'sawtooth' ? [1, 0.5, 0.33, 0.25] : [1, 0.11, 0.04, 0.02]);
+
+                        peaks.forEach((p, idx) => {
+                            if (p <= numTerms) {
+                                let targetX = (p * 50) / 1000;
+                                let diff = Math.abs(xNorm - targetX);
+                                if (diff < 0.03) {
+                                    val = Math.max(val, amps[idx] * 230 * (1 - diff / 0.03));
+                                }
+                            }
+                        });
+                        dataArray[i] = val;
+                    }
+                    freqData = dataArray;
+                }
+
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#38bdf8';
+                ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+
+                ctx.beginPath();
+                let sliceWidth = canvas.width / (bufferLength / 2);
+                let x = 0;
+
+                ctx.moveTo(0, canvas.height);
+                for (let i = 0; i < bufferLength / 2; i++) {
+                    let v = freqData[i] / 255.0;
+                    let y = canvas.height - (v * canvas.height * 0.85) - 10;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                    x += sliceWidth;
+                }
+                ctx.lineTo(canvas.width, canvas.height);
+                ctx.lineTo(0, canvas.height);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // 2. Dibujar Espectrograma Acústico
+                if (waterfallCtx && waterfallCanvas) {
+                    if (!waterfallCanvas.width || !waterfallCanvas.height) {
+                        initFFTCanvas();
+                    }
+                    waterfallCtx.drawImage(waterfallCanvas, 0, 0, waterfallCanvas.width - 1, waterfallCanvas.height, 1, 0, waterfallCanvas.width - 1, waterfallCanvas.height);
+                    
+                    let colHeight = waterfallCanvas.height;
+                    let imgData = waterfallCtx.createImageData(1, colHeight);
+                    let numBins = Math.floor(bufferLength / 2);
+
+                    for (let py = 0; py < colHeight; py++) {
+                        let binIndex = Math.floor(((colHeight - 1 - py) / colHeight) * (numBins * 0.5));
+                        let valNorm = (freqData[binIndex] || 0) / 255.0;
+
+                        let r = 0, g = 0, b = 0;
+                        if (valNorm < 0.2) {
+                            let t = valNorm / 0.2;
+                            r = 0; g = 0; b = Math.floor(t * 120);
+                        } else if (valNorm < 0.4) {
+                            let t = (valNorm - 0.2) / 0.2;
+                            r = Math.floor(t * 100); g = 0; b = Math.floor(120 + t * 135);
+                        } else if (valNorm < 0.7) {
+                            let t = (valNorm - 0.4) / 0.3;
+                            r = Math.floor(100 + t * 155); g = Math.floor(t * 200); b = Math.floor(255 - t * 255);
+                        } else {
+                            let t = (valNorm - 0.7) / 0.3;
+                            r = 255; g = Math.floor(200 + t * 55); b = Math.floor(t * 255);
+                        }
+
+                        let index = (py * 1) * 4;
+                        imgData.data[index] = r;
+                        imgData.data[index + 1] = g;
+                        imgData.data[index + 2] = b;
+                        imgData.data[index + 3] = 255;
+                    }
+                    waterfallCtx.putImageData(imgData, 0, 0);
+                }
+            }
+
+            render();
+        }
+
+        window.addEventListener('resize', () => {
+            initFFTCanvas();
+        });
+    </script>
+</body>
+</html>
